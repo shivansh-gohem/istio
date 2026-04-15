@@ -325,6 +325,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 			}},
 			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: MainInternalName},
 		}},
+		RequestHeadersToRemove: []string{"content-type"},
 	}}
 	return lb.buildConnectTerminateListener(routes)
 }
