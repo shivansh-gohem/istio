@@ -60,29 +60,38 @@ func NewMulticluster(configCluster cluster.ID, controller multicluster.Component
 
 func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller, error) {
 	cc := m.component.ForCluster(clusterID)
-	configClusterCC := m.component.ForCluster(m.configCluster)
+	if cc == nil {
+		return nil, fmt.Errorf("cluster %v is not configured", clusterID)
+	}
 
-	agg := &AggregateController{}
+	agg := &AggregateController{
+		controllers: []*CredentialsController{},
+	}
 
-	if cc != nil {
-		agg.authController = *cc
+	// cc is a **CredentialsController. We must dereference it to get the actual *CredentialsController.
+	remoteController := *cc
+
+	if remoteController != nil {
+		agg.authController = remoteController
 		if clusterID != m.configCluster {
 			// If the request cluster is not the config cluster, we will append it and use it for auth
 			// This means we will prioritize the proxy cluster, then the config cluster for credential lookup
 			// Authorization will always use the proxy cluster.
-			agg.controllers = append(agg.controllers, *cc)
+			agg.controllers = append(agg.controllers, remoteController)
 		}
-	} else if configClusterCC != nil {
-		// Fallback: If the remote controller is explicitly disabled, use the config cluster for auth
-		agg.authController = *configClusterCC
+	} else {
+		// Explicitly set to nil if the remote controller is disabled
+		agg.authController = nil
 	}
 
-	if configClusterCC != nil {
-		agg.controllers = append(agg.controllers, *configClusterCC)
+	if configClusterCC := m.component.ForCluster(m.configCluster); configClusterCC != nil {
+		configController := *configClusterCC
+		if configController != nil {
+			agg.controllers = append(agg.controllers, configController)
+		}
 	}
 
-	// If we have absolutely no controllers available, return an error
-	if len(agg.controllers) == 0 {
+	if len(agg.controllers) == 0 && agg.authController == nil {
 		return nil, fmt.Errorf("cluster %v is not configured and no fallback config cluster credentials available", clusterID)
 	}
 
@@ -152,6 +161,9 @@ func (a *AggregateController) GetConfigMapCaCert(name, namespace string) (certIn
 }
 
 func (a *AggregateController) Authorize(serviceAccount, namespace string) error {
+	if a.authController == nil {
+		return fmt.Errorf("no auth controller")
+	}
 	return a.authController.Authorize(serviceAccount, namespace)
 }
 
