@@ -20,7 +20,14 @@ import (
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/multicluster"
+)
+
+var enableRemoteCredentialsController = env.RegisterBoolVar(
+	"PILOT_ENABLE_REMOTE_CREDENTIALS_CONTROLLER",
+	true,
+	"If enabled, pilot will start the credentials controller for remote clusters. Default is true.",
 )
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
@@ -38,8 +45,14 @@ func NewMulticluster(configCluster cluster.ID, controller multicluster.Component
 	}
 
 	m.component = multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster) *CredentialsController {
-		// Only enable ConfigMaps for the config cluster, not for remote clusters
 		isConfigCluster := cluster.ID == m.configCluster
+
+		// If it's a remote cluster and the user explicitly opted out, do not start the controller.
+		if !isConfigCluster && !enableRemoteCredentialsController.Get() {
+			return nil
+		}
+
+		// Only enable ConfigMaps for the config cluster, not for remote clusters
 		return NewCredentialsController(cluster.Client, m.secretHandlers, isConfigCluster)
 	})
 	return m
@@ -47,21 +60,32 @@ func NewMulticluster(configCluster cluster.ID, controller multicluster.Component
 
 func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller, error) {
 	cc := m.component.ForCluster(clusterID)
-	if cc == nil {
-		return nil, fmt.Errorf("cluster %v is not configured", clusterID)
-	}
+	configClusterCC := m.component.ForCluster(m.configCluster)
+
 	agg := &AggregateController{}
-	agg.controllers = []*CredentialsController{}
-	agg.authController = *cc
-	if clusterID != m.configCluster {
-		// If the request cluster is not the config cluster, we will append it and use it for auth
-		// This means we will prioritize the proxy cluster, then the config cluster for credential lookup
-		// Authorization will always use the proxy cluster.
-		agg.controllers = append(agg.controllers, *cc)
+
+	if cc != nil {
+		agg.authController = *cc
+		if clusterID != m.configCluster {
+			// If the request cluster is not the config cluster, we will append it and use it for auth
+			// This means we will prioritize the proxy cluster, then the config cluster for credential lookup
+			// Authorization will always use the proxy cluster.
+			agg.controllers = append(agg.controllers, *cc)
+		}
+	} else if configClusterCC != nil {
+		// Fallback: If the remote controller is explicitly disabled, use the config cluster for auth
+		agg.authController = *configClusterCC
 	}
-	if cc := m.component.ForCluster(m.configCluster); cc != nil {
-		agg.controllers = append(agg.controllers, *cc)
+
+	if configClusterCC != nil {
+		agg.controllers = append(agg.controllers, *configClusterCC)
 	}
+
+	// If we have absolutely no controllers available, return an error
+	if len(agg.controllers) == 0 {
+		return nil, fmt.Errorf("cluster %v is not configured and no fallback config cluster credentials available", clusterID)
+	}
+
 	return agg, nil
 }
 
