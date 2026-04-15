@@ -92,7 +92,7 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 	}
 
 	if len(agg.controllers) == 0 && agg.authController == nil {
-		return nil, fmt.Errorf("cluster %v is not configured and no fallback config cluster credentials available", clusterID)
+		return nil, fmt.Errorf("cluster %v has no credential controllers configured", clusterID)
 	}
 
 	return agg, nil
