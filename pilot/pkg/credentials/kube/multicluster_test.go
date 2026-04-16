@@ -24,7 +24,7 @@ import (
 )
 
 func TestForClusterWithRemoteCredentialsDisabled(t *testing.T) {
-	t.Setenv("PILOT_ENABLE_REMOTE_CREDENTIALS_CONTROLLER", "false")
+	test.SetEnvForTest(t, "PILOT_ENABLE_REMOTE_CREDENTIALS_CONTROLLER", "false")
 
 	stop := test.NewStop(t)
 	localClient := kube.NewFakeClient()
@@ -60,7 +60,7 @@ func TestForClusterWithRemoteCredentialsDisabled(t *testing.T) {
 }
 
 func TestAuthorizeWithRemoteCredentialsDisabled(t *testing.T) {
-	t.Setenv("PILOT_ENABLE_REMOTE_CREDENTIALS_CONTROLLER", "false")
+	test.SetEnvForTest(t, "PILOT_ENABLE_REMOTE_CREDENTIALS_CONTROLLER", "false")
 
 	stop := test.NewStop(t)
 	localClient := kube.NewFakeClient()
@@ -89,7 +89,7 @@ func TestAuthorizeWithRemoteCredentialsDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error getting remote cluster, got %v", err)
 	}
-	if err := remoteCon.Authorize("sa-allowed", "ns-local"); err == nil {
-		t.Fatalf("expected Authorize to fail for remote cluster due to opt-out, but it succeeded")
+	if err := remoteCon.Authorize("sa-allowed", "ns-local"); err != ErrNoAuthController {
+		t.Fatalf("expected Authorize to fail with %v, actually got %v", ErrNoAuthController, err)
 	}
 }

@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"errors"
 	"fmt"
 
 	"istio.io/istio/pilot/pkg/credentials"
@@ -160,9 +161,11 @@ func (a *AggregateController) GetConfigMapCaCert(name, namespace string) (certIn
 	return nil, firstError
 }
 
+var ErrNoAuthController = errors.New("no auth controller")
+
 func (a *AggregateController) Authorize(serviceAccount, namespace string) error {
 	if a.authController == nil {
-		return fmt.Errorf("no auth controller")
+		return ErrNoAuthController
 	}
 	return a.authController.Authorize(serviceAccount, namespace)
 }
