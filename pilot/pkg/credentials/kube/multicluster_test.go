@@ -17,6 +17,7 @@ package kube
 import (
 	"testing"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -24,7 +25,7 @@ import (
 )
 
 func TestForClusterWithRemoteCredentialsDisabled(t *testing.T) {
-	test.SetEnvForTest(t, "PILOT_ENABLE_REMOTE_CREDENTIALS_CONTROLLER", "false")
+	test.SetForTest(t, &features.EnableRemoteCredentialsController, false)
 
 	stop := test.NewStop(t)
 	localClient := kube.NewFakeClient()
@@ -60,7 +61,7 @@ func TestForClusterWithRemoteCredentialsDisabled(t *testing.T) {
 }
 
 func TestAuthorizeWithRemoteCredentialsDisabled(t *testing.T) {
-	test.SetEnvForTest(t, "PILOT_ENABLE_REMOTE_CREDENTIALS_CONTROLLER", "false")
+	test.SetForTest(t, &features.EnableRemoteCredentialsController, false)
 
 	stop := test.NewStop(t)
 	localClient := kube.NewFakeClient()

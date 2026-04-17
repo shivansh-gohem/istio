@@ -19,17 +19,13 @@ import (
 	"fmt"
 
 	"istio.io/istio/pilot/pkg/credentials"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/multicluster"
 )
 
-var enableRemoteCredentialsController = env.RegisterBoolVar(
-	"PILOT_ENABLE_REMOTE_CREDENTIALS_CONTROLLER",
-	true,
-	"If enabled, pilot will start the credentials controller for remote clusters. Default is true.",
-)
+
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
@@ -49,7 +45,7 @@ func NewMulticluster(configCluster cluster.ID, controller multicluster.Component
 		isConfigCluster := cluster.ID == m.configCluster
 
 		// If it's a remote cluster and the user explicitly opted out, do not start the controller.
-		if !isConfigCluster && !enableRemoteCredentialsController.Get() {
+		if !isConfigCluster && !features.EnableRemoteCredentialsController {
 			return nil
 		}
 
