@@ -25,8 +25,6 @@ import (
 	"istio.io/istio/pkg/kube/multicluster"
 )
 
-
-
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
 	configCluster  cluster.ID
